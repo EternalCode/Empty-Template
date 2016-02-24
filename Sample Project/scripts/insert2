@@ -1,0 +1,128 @@
+#!/usr/bin/env python
+    
+import os
+import subprocess
+import sys
+import shutil
+import binascii
+import textwrap
+import sys
+import argparse
+
+if sys.version_info < (3, 4):
+        print('Python 3.4 or later is required.')
+        sys.exit(1)
+
+# Parse arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('--offset', metavar='offset', type=int, 
+                    help='offset to insert at', default=0x800000)
+parser.add_argument('--input', metavar='file', 
+                    help='input filename', default='BPRE0.gba')
+parser.add_argument('--output', metavar='file', 
+                    help='output filename', default='test.gba')
+parser.add_argument('--debug', action='store_true',
+                    help='print symbol table')
+
+args = parser.parse_args()
+
+PATH = '/opt/devkitpro/devkitARM/bin'
+PREFIX = 'arm-none-eabi-'
+OBJCOPY = os.path.join(PATH, PREFIX + 'objcopy')
+OBJDUMP = os.path.join(PATH, PREFIX + 'objdump')
+NM = os.path.join(PATH, PREFIX + 'nm')
+AS = os.path.join(PATH, PREFIX + 'as')
+CC = os.path.join(PATH, PREFIX + 'gcc')
+CXX = os.path.join(PATH, PREFIX + 'g++')
+
+def get_text_section():
+        # Dump sections
+        out = subprocess.check_output([OBJDUMP, '-t', 'build/linked.o'])
+        lines = out.decode().split('\n')
+        
+        # Find text section
+        text = filter(lambda x: x.strip().endswith('.text'), lines)
+        section = list(text)[0]
+        
+        # Get the offset
+        offset = int(section.split(' ')[0], 16)
+        
+        return offset
+        
+def symbols(subtract=0):
+        out = subprocess.check_output([NM, 'build/linked.o'])
+        lines = out.decode().split('\n')
+        
+        name = ''
+        
+        ret = {}
+        for line in lines:
+                parts = line.strip().split()
+                
+                if (len(parts) < 3):
+                        continue
+                        
+                if (parts[1].lower() != 't'):
+                        continue
+                        
+                offset = int(parts[0], 16)
+                ret[parts[2]] = offset - subtract
+                
+        return ret
+        
+def insert(rom):
+        where = args.offset
+        rom.seek(where)
+        with open('build/output.bin', 'rb') as binary:
+                data = binary.read()
+        rom.write(data)
+        return where
+                       
+def hook(rom, space, hook_at, register=0):
+        # Align 2
+        if hook_at & 1:
+            hook_at -= 1
+            
+        rom.seek(hook_at)
+        
+        register &= 7
+        
+        if hook_at % 4:
+            data = bytes([0x01, 0x48 | register, 0x00 | (register << 3), 0x47, 0x0, 0x0])
+        else:
+            data = bytes([0x00, 0x48 | register, 0x00 | (register << 3), 0x47])
+            
+        space += 0x08000001
+        data += (space.to_bytes(4, 'little'))
+        rom.write(bytes(data))
+        
+shutil.copyfile(args.input, args.output)
+with open(args.output, 'rb+') as rom:
+        offset = get_text_section()
+        table = symbols(offset)
+        where = insert(rom)
+
+        # Adjust symbol table
+        for entry in table:
+                table[entry] += where
+
+        # Read hooks from a file
+        with open('hooks', 'r') as hooklist:
+                for line in hooklist:
+                        if line.strip().startswith('#'): continue
+                        
+                        symbol, address, register = line.split()
+                        offset = int(address, 16) - 0x08000000
+                        try:
+                                code = table[symbol]
+                        except KeyError:
+                                print('Symbol missing:', symbol)
+                                continue
+
+                        hook(rom, code, offset, int(register))
+                                
+        if args.debug:
+                width = max(map(len, table.keys())) + 1
+                for key in sorted(table.keys()):
+                        fstr = ('{:' + str(width) + '} {:08X}')
+                        print(fstr.format(key + ':', table[key] + 0x08000000))
