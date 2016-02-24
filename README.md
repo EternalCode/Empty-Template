@@ -23,4 +23,6 @@ DevkitARM (neat installer for windows!): http://devkitpro.org/wiki/Getting_Start
 
 4) Next run "Python scripts\insert"
 
+4.5) If step 4 broke down, try "Python scripts\insert2"
+
 5) Test.gba is your output file with the changes patched.
