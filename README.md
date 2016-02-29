@@ -10,6 +10,7 @@ DevkitARM (neat installer for windows!): http://devkitpro.org/wiki/Getting_Start
 
 ###### Credits
 - https://github.com/Touched for writing these python scripts. I've done some minor edits to the insert script for it to work on Windows, but the main brain behind this template/style is not me. 
+- Previously, https://github.com/shinyquagsire23 & Bond697 & Mastermind_x introduced ways to do somethng similar involving a make file. This current iteration is possible thanks to their work.
 
 
 ##### Quick Guide:
