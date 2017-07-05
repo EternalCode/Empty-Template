@@ -7,8 +7,8 @@ import hashlib
 import subprocess
 import sys
 
-PATH = 'C://devkitPro//devkitARM//bin'
-PREFIX = '//arm-none-eabi-'
+PATH = 'C:/devkitPro/devkitARM/bin'
+PREFIX = '/arm-none-eabi-'
 AS = (PATH + PREFIX + 'as')
 CC = (PATH + PREFIX + 'gcc')
 LD = (PATH + PREFIX + 'ld')
